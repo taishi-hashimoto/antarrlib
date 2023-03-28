@@ -28,7 +28,7 @@ def steering_vector(
     r: List[Tuple[float, float, float]],
     v: List[Tuple[float, float, float]],
     s: int = 1
-):
+) -> np.ndarray:
     """Steering vector of an antenna array.
 
     The result is not normalized.
@@ -52,7 +52,7 @@ def steering_vector(
     return np.exp(s * 1j * k * np.dot(v, np.transpose(r)))
 
 
-def radial(ze: np.ndarray, az: np.ndarray):
+def radial(ze: np.ndarray, az: np.ndarray) -> np.ndarray:
     """Radial unit vector to the specified direction.
 
     Angles are in radian.
@@ -78,7 +78,7 @@ def radial(ze: np.ndarray, az: np.ndarray):
         np.cos(ze)))
 
 
-def dB(x, b=1):
+def dB(x, b=1) -> np.ndarray:
     """Decibel function, i.e., `y := 10*log10(x/b)`.
 
     Parameters
@@ -108,6 +108,6 @@ def dB(x, b=1):
     return 10 * np.log10(x / b)
 
 
-def idB(y):
+def idB(y) -> np.ndarray:
     """Inverse function of `dB`, i.e., `x := 10^(y/10)`."""
     return np.power(10, 0.1*np.array(y))

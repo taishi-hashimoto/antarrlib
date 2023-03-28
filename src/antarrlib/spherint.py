@@ -3,7 +3,7 @@ import numpy as np
 from typing import List
 
 
-def patch_area(ze: List[float], az: List[float], ra: float = 1.):
+def patch_area(ze: List[float], az: List[float], ra: float = 1.) -> np.ndarray:
     """Approximate area of each small patch on the spherical polar coordinates.
     
     `np.sum(patch_area(...))` will give a surface area of given part of sphere.
