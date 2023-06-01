@@ -66,4 +66,4 @@ def test_radiation_pattern():
     # Attenuated a bit by beam steering.
     assert isclose(peak, 37.49609445360281)
     
-    plt.show()
+    # plt.show()
