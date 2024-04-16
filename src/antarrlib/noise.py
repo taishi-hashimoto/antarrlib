@@ -33,7 +33,7 @@ def mean_chisq(
     if axis is None:
         data = np.ravel(data)
         return mean_chisq(data, axis=-1, df=df, nseg=nseg, lseg=lseg)
-    
+
     nt = np.shape(data)[axis]
     if nseg is not None:
         km = nseg
@@ -41,13 +41,12 @@ def mean_chisq(
     elif lseg is not None:
         km = nt // lseg
         ns = lseg
-    print(nt, km, ns)
     ka = ns * df
     a = np.sqrt(2) * erfcinv(2 / km)
-    e = km / np.sqrt(2 * np.pi) * np.exp(-1/2 * a**2)
+    e = km / np.sqrt(2 * np.pi) * np.exp(-1 / 2 * a**2)
     cm = 1 / (1 - e / np.sqrt(ka))
     # Rearrange data
-    data = _discard_extra(data, axis=axis, n=ns*km)
+    data = _discard_extra(data, axis=axis, n=ns * km)
     new_shape, new_axis = _split_axis(data, axis, ns, 1)
     sm = np.nanmin(np.nanmean(data.reshape(new_shape), axis=new_axis), axis=axis)
     return sm * cm
