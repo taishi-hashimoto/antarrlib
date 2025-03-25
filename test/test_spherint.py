@@ -74,4 +74,4 @@ def test_radiated_power():
     print("  Theoretical Radiation Resistance : {:.5f} Ohm".format(R))
 
     # Difference should be small.
-    assert isclose(P - num, -4.560796185160143e-13)
+    assert isclose(P, num)
