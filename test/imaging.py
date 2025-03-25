@@ -1,31 +1,60 @@
-"In-beam imaging with the spatial- and frequency-domain interferometry (SDI + FDI)."
-
-from antarrlib import freq2wlen, freq2wnum, radial, incirc_trigrid, dB, SPEED_OF_LIGHT as c0
+"In-beam imaging with the spatial- and frequency-domain interferometry (SDI + FDI) using Capon method."
+# %%
+from os.path import join, dirname
 import numpy as np
 import matplotlib.pyplot as plt
+from antarrlib import freq2wlen, freq2wnum, radial, incirc_trigrid, dB, SPEED_OF_LIGHT as c0
 
 
-import jax.numpy as jnp
-from jax import jit, vmap
+try:
+    import jax.numpy as jnp
+    from jax import jit, vmap
 
-@jit
-def capon(rxx_i, a):
-    rxx_i = jnp.array(rxx_i)
-    a = jnp.array(a)
-    def compute_power(a1):
-        denom = a1.conj().T @ rxx_i @ a1.T
-        return jnp.square(jnp.abs(1 / denom))
+    @jit
+    def capon(rxx_i, a):
+        """Capon beamformer.
+        
+        Parameters
+        ==========
+        rxx_i: array of complex of the size [M, M]
+            Inverse of the variance-covariance matrix of the received signals, where `M` is the number of channels.
+        a: array of complex of the size [N, M]
+            Steering vector for `N` set of conditions.
+        
+        Returns
+        =======
+        spc: array of float of the size [N]
+            Capon spectrum for `N` set of conditions.
+        """
+        rxx_i = jnp.array(rxx_i)
+        a = jnp.array(a)
 
-    return vmap(compute_power)(a)
+        def capon_each(a1):
+            return 1 / jnp.abs(a1.conj().T @ rxx_i @ a1.T)
+
+        return vmap(capon_each)(a)
+
+except ImportError:
+    from warnings import warn
+
+    def capon(rxx_i, a):
+        "Fallback version of capon when jax was not found."
+        warn("jax is not installed, falling back to native loop implementation.")
+
+        y = []
+        for a1 in a:
+            y.append(1 / np.abs(a1.conj().T @ rxx_i @ a1.T))
+        return np.array(y)
 
 
 def test_imaging():
+    "SDI + FDI with Capon method."
     # %% Settings
 
     # Target settings.
-    target_x = -3000  # m
-    target_y = -4500  # m
-    target_altitude = 80.15e3  # [m]
+    target_x = 2000  # m
+    target_y = 3000  # m
+    target_altitude = 80e3  # [m]
     target_position = np.array([target_x, target_y, target_altitude])
 
     # True target direction and distance.
@@ -70,6 +99,7 @@ def test_imaging():
     ax.set_aspect('equal')
     ax.grid()
     fig.tight_layout()
+    fig.savefig(join(dirname(__file__), "fig_imaging_antpos.png"))
 
     # Generate received signals for each frequency and antenna [num_freqs, num_antennas]
     tx_distance = np.linalg.norm(target_position)
@@ -90,7 +120,7 @@ def test_imaging():
     r_m = range_gate_lo + csubr * range_gate_width * c0
 
     # Angular evaluation grid.
-    ze_deg = np.linspace(0, 30, 31)
+    ze_deg = np.linspace(0, 15, 31)
     az = np.linspace(-np.pi, np.pi, 361)
 
     # Final evaluation grid.
@@ -105,25 +135,22 @@ def test_imaging():
 
     # %% Imaging.
 
-    # Beamforming.
+    # Fourier method.
     y = np.abs(np.sum(e.conj() * received_signals[None, ...], axis=(1, 2)))**2
     y.shape = ze_g.shape
 
     # Capon method.
-    nchan = num_antennas*num_freqs
+    nchan = num_antennas * num_freqs
     x = received_signals.ravel()
-    rxx_i = np.linalg.inv(x[:, None].dot(x.conj()[None, :]) + 0.001 * np.eye(nchan))
+    rxx_i = np.linalg.inv(x[:, None].dot(x.conj()[None, :]) + 1e-4 * np.eye(nchan))
     ee = e.reshape(-1, nchan)
-    # y2 = []
-    # for ee1 in tqdm(ee):
-    #     y2.append(np.abs(1 / ee1.conj().dot(rxx_i).T.dot(ee1.T))**2)
-    y2 = capon(rxx_i, ee)
-    y2 = np.reshape(y2, ze_g.shape)
+    y2 = capon(rxx_i, ee).reshape(ze_g.shape)
 
-    # %% Results for beamforming.
+    # %% Results for Fourier method.
 
     # Determin nrows and ncols in the figure.
-    nrow = int(np.sqrt(nsubr))
+    # nrow = int(np.sqrt(nsubr))
+    nrow = 4
     ncol = nsubr // nrow
     if nrow * ncol < nsubr:
         ncol += 1
@@ -147,6 +174,7 @@ def test_imaging():
         ax.set_rgrids(range(0, 90, 10), [])
         ax.plot(az0, np.rad2deg(ze0), "ro", mfc="none", ms=10)
     fig.tight_layout()
+    fig.savefig(join(dirname(__file__), "fig_imaging_fourier.png"))
 
     # %% Results for Capon
 
@@ -169,6 +197,7 @@ def test_imaging():
         ax.set_rgrids(range(0, 90, 10), [])
         ax.plot(az0, np.rad2deg(ze0), "ro", mfc="none", ms=10)
     fig.tight_layout()
+    fig.savefig(join(dirname(__file__), "fig_imaging_capon.png"))
 
     # %% Peak at each range.
 
@@ -182,6 +211,7 @@ def test_imaging():
     plt.gca().yaxis.set_major_formatter("{x:.0f} dB")
     plt.ylim(-40, 5)
     plt.tight_layout()
+    plt.savefig(join(dirname(__file__), "fig_imaging_fourier_vs_capon.png"))
 
-    # %%
-    plt.show()
+    # plt.show()
+# %%
