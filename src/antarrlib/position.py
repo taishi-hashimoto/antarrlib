@@ -3,7 +3,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-def incirc_trigrid(dx: float, radius: float) -> NDArray[np.float_]:
+def incirc_trigrid(dx: float, radius: float) -> NDArray[np.float64]:
     """Generate a triangular grid within a circle located at `(0, 0, 0)`.
 
     A lattice point always comes to the center of the circle.
