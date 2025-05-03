@@ -6,6 +6,8 @@ import jax.numpy as jnp
 def subrange(r0: np.ndarray, rr: np.ndarray, nsubr: int) -> np.ndarray:
     """Compute subrange gates for each range gate.
 
+    Assuming that the radar is located at the origin.
+
     Parameters
     ==========
     r0: ndarray
@@ -37,21 +39,22 @@ def steering_vector(
 
     Parameters
     ==========
-    k: M float ndarray
-        The wave number [M].
+    k: ndarray
+        The wave number [nfreq].
     r: ndarray
-        The antenna location [N, 3].
+        The antenna location [nant, 3].
     v: ndarray
         Radial vectors [ndir, 3], where ndir is the number of directions.
     c: ndarray
-        The range gates [nr, nsubr], where nr is the number of range gate and nsubr is the number of subdivision.
+        The range and subrange gate bounds [nr, nsubr], wherenr is the number of range gate and
+        nsubr is the number of subdivision. Can be computed by subrange().
     s: int
         +1 for Tx, -1 for Rx.
 
     Returns
     =======
     a: ndarray
-        Steering vector [nr, ndir, nsubr, ]
+        Steering vector [nr, ndir, nsubr, nfreq, nant]
     """
     v = jnp.reshape(v, (-1, 3))
     c = jnp.atleast_2d(c)
@@ -59,10 +62,14 @@ def steering_vector(
     ndir = len(v)
     nr, nsubr = c.shape
 
+    # Tx distance is the subrange gate bounds.
+    # Here, we assume that c is measured from the center of the antenna array.
     tx_distance = c[:, None, :, None]
 
-    rx_positions = v[None, :, None, :] * tx_distance
+    # Rx positions are measured from the center of the antenna array.
+    rx_positions = v[None, :, None, :] * c[:, None, :, None] + jnp.mean(r, axis=0)[None, None, None, :]
 
+    # Rx distance is measured for each antenna.
     rx_distance = jnp.linalg.norm(rx_positions[..., None, :] - r[None, ..., :], axis=-1)
     
     distance = tx_distance + rx_distance
