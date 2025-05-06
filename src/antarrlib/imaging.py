@@ -45,7 +45,7 @@ def steering_vector(
         Radial vectors of the size `[ndir, 3]`, where `ndir` is the number of directions.
     r: ndarray
         The range and subrange gate bounds `[nr, nsubr]`, where `nr` is the number of range gate and
-        `nsubr` is the number of subdivision. Can be computed by `subrange()`.
+        `nsubr` is the number of subdivision. Can be computed by `subrange_centers()`.
 
     Returns
     =======
@@ -58,7 +58,7 @@ def steering_vector(
     r = np.atleast_2d(r)[:, None, :, None]
 
     # Tx distance is the subrange gate bounds.
-    # Here, we assume that c is measured from the center of the antenna array.
+    # Here, we assume that r is measured from the center of the antenna array.
     tx_distance = r
 
     # Rx positions are measured from the center of the antenna array.
