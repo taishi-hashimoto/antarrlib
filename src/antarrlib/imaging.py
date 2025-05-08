@@ -1,5 +1,7 @@
 "Imaging library."
 import numpy as np
+import jax
+import jax.numpy as jnp
 
 
 def subrange_centers(r0: np.ndarray, rr: np.ndarray, nsubr: int) -> np.ndarray:
@@ -71,3 +73,35 @@ def steering_vector(
     a = np.exp(1j * k[None, :, None] * distance[..., None, :])
 
     return a
+
+
+def capon(
+    rxx_i: jnp.ndarray,
+    a: jnp.ndarray,
+):
+    """Capon beamforming.
+    
+    Parameters
+    ==========
+    rxx_i: ndarray
+        The covariance matrix of the size `[nchan, nchan]`, where `nchan` is
+        the number of channels.
+        `nchan = nfreq * nant` for FDI + SDI cases.
+    a: ndarray
+        The steering vector of the size `[nconst, nchan]`, where nconst is the
+        number of constraints.
+        `nconst = ndir * nsubr` for FDI + SDI cases.
+        
+    Returns
+    =======
+    spc: array of float of the size [nconst]
+        Capon spectrum for `nconst` set of constraints.
+    """
+    rxx_i = jnp.array(rxx_i)
+    a = jnp.array(a)
+
+    def each(a1: jnp.ndarray) -> jnp.ndarray:
+        """Compute the Capon spectrum for each steering vector."""
+        return 1 / jnp.abs(a1.conj().T @ rxx_i @ a1.T)
+
+    return jax.vmap(each)(a)
