@@ -22,12 +22,6 @@ radius = 10  # [m]
 antenna_positions = incirc_trigrid(lambda_ * 0.7, radius)
 num_antennas = len(antenna_positions)
 
-# Antenna settings.
-lambda_ = freq2wlen(f0)  # wavelength [m]
-radius = 10  # [m]
-antenna_positions = incirc_trigrid(lambda_ * 0.7, radius)
-num_antennas = len(antenna_positions)
-
 fig, ax = plt.subplots(figsize=(3, 3))
 ax.scatter(antenna_positions[:, 0], antenna_positions[:, 1], c='red', marker='o')
 ax.add_patch(plt.Circle((0, 0), radius, color='blue', fill=False, linestyle='dashed'))
@@ -57,8 +51,8 @@ print(f"  True distance: {target_distance/1e3:.03f} km")
 print(f"  True direction (ze, az): {np.rad2deg(ze0):.02f}°, {np.rad2deg(az0):.02f}°")
 
 
-received_signals = point_source(k, antenna_positions, target_position, rx_power=2.5).reshape((num_freqs, num_antennas))
-received_signals += noise(received_signals.shape, 0.1, 0.1, 0.1, 0.1)
+received_signals = point_source(k, antenna_positions, target_position, 1).reshape((num_freqs, num_antennas))
+received_signals += noise(received_signals.shape, 0.01)
 
 # %%
 range_gate_width = 2e-6
