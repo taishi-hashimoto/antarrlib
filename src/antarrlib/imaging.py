@@ -30,8 +30,8 @@ def subrange_centers(r0: np.ndarray, rr: np.ndarray, nsubr: int) -> np.ndarray:
 def steering_vector(
     k: np.ndarray,
     p: np.ndarray,
-    v: np.ndarray,
     r: np.ndarray,
+    v: np.ndarray,
 ) -> np.ndarray:
     """Generalized steering vector for frequency and spatial domain interferometry.
 
@@ -43,34 +43,34 @@ def steering_vector(
         The wave number of the size `[nfreq]`, where `nfreq` is the number of frequencies.
     p: ndarray
         The antenna location of the size `[nant, 3]`, where `nant` is the number of antennas.
-    v: ndarray
-        Radial vectors of the size `[ndir, 3]`, where `ndir` is the number of directions.
     r: ndarray
         The range and subrange gate bounds `[nr, nsubr]`, where `nr` is the number of range gate and
         `nsubr` is the number of subdivision. Can be computed by `subrange_centers()`.
+    v: ndarray
+        Radial vectors of the size `[ndir, 3]`, where `ndir` is the number of directions.
 
     Returns
     =======
     a: ndarray
-        Steering vector of the size `[nr, ndir, nsubr, nfreq, nant]`.
+        Steering vector of the size `[nr, nsubr, ndir, nfreq, nant]`.
     """
     k = np.ravel(k)
     p = np.reshape(p, (-1, 3))
-    v = np.reshape(v, (-1, 3))
-    r = np.atleast_2d(r)[:, None, :, None]
+    r = np.atleast_2d(r)[:, :, None, None]
+    v = np.reshape(v, (-1, 3))[None, None, :, :]
 
     # Tx distance is the subrange gate bounds.
     # Here, we assume that r is measured from the center of the antenna array.
     tx_distance = r
 
     # Rx positions are measured from the center of the antenna array.
-    rx_positions = v[None, :, None, :] * r + np.mean(p, axis=0)[None, None, None, :]
+    rx_positions = v * r + np.mean(p, axis=0)[None, None, None, :]
 
-    # Rx distance is measured for each antenna.
-    rx_distance = np.linalg.norm(rx_positions[..., None, :] - p[None, ..., :], axis=-1)
+    # Rx distance is measured for each antenna [nr, nsubr, ndir, nant].
+    rx_distance = np.linalg.norm(rx_positions[..., None, :] - p[..., :], axis=-1)
 
     distance = tx_distance + rx_distance
-    a = np.exp(1j * k[None, :, None] * distance[..., None, :])
+    a = np.exp(1j * k[None, None, None, :, None] * distance[..., None, :])
 
     return a
 
