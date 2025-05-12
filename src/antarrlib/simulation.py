@@ -23,7 +23,7 @@ def point_source(k, r, xyz, rx_power: float = 1.):
     Returns
     =======
     signal: ndarray
-        Received power [M, N]
+        Received power [M, N, T]
     """
     k = np.ravel(k)
     r = np.reshape(r, (-1, 3))
@@ -31,6 +31,6 @@ def point_source(k, r, xyz, rx_power: float = 1.):
     tx_distance = np.linalg.norm(xyz - np.linalg.norm(r, axis=0), axis=-1)
     rx_distance = np.linalg.norm(r[:, None, :] - xyz[None, :, :], axis=-1)
     distance = tx_distance + rx_distance  # [M, N, T]
-    phase = np.exp(-1j * k[:, None, None] * distance)
+    phase = np.exp(1j * k[:, None, None] * distance)
     power = rx_power * (distance[0:1] / distance)**2 / (len(k) * len(r) * len(xyz))
     return np.sqrt(power) * phase
