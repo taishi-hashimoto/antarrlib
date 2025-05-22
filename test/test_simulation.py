@@ -1,12 +1,16 @@
 # %%
-from tqdm.auto import tqdm
+import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
+from tqdm.auto import tqdm
 from antarrlib import freq2wlen, freq2wnum, incirc_trigrid, dB, SPEED_OF_LIGHT as c0
 from antarrlib.simulation import point_source, noise
 from antarrlib.imaging import steering_vector, subrange_centers, capon
 from icogrid import Icogrid
-from icogrid.skymap import direction, radial, plot_skymap, triang_skymap
-import numpy as np
+from icogrid.skymap import direction, plot_skymap, triang_skymap
+
+from bpadmm import basis_pursuit_admm
+
 
 c0 = 299792458.0  # Speed of light [m/s]
 f0 = 47e6  # Center frequency [Hz]
@@ -69,12 +73,12 @@ nsubr = 32
 
 r_m = subrange_centers(range_gate_lo, range_gate_width*c0, nsubr).ravel()
 
-angular_separation = 1  # [deg]
+angular_separation = 0.1  # [deg]
 ico = Icogrid.from_angular_separation(angular_separation, degrees=True)
-ico.set_extent(zemax=15, zemin=0, degrees=True)
+ico.set_extent(zemax=30, zemin=0, degrees=True)
 
 # Decimate grid to some value.
-ndirs_req = len(ico)
+ndirs_req = 40000
 rng = np.random.default_rng(1)
 indices = rng.choice(len(ico), size=ndirs_req, replace=False)
 
@@ -100,12 +104,16 @@ if nrow * ncol < nsubr:
 
 
 # Plotting method.
-def plot_images(y):
+def plot_images(y, zemax=10):
     # Color range.
     noi = np.median(y)
     y_dB = dB(y, noi)
     ymax = np.max(y_dB)
     ymaxs = np.max(y, axis=1)
+    is_bad = np.isnan(y_dB.ravel())
+    y_dB.flat[is_bad] = 0
+    cmap = "viridis"
+    norm = Normalize(vmin=0, vmax=ymax)
 
     fig, axes = plt.subplots(nrow, ncol, figsize=(12, 8), subplot_kw=dict(projection="polar"))
     for ax in axes.flat:
@@ -113,6 +121,10 @@ def plot_images(y):
         ax.set_rgrids([], [])
     ze, az = ico.to_direction()[indices, :].T
     tri = triang_skymap(ze, az, degrees=False)
+    print(is_bad[tri.triangles])
+    mask = np.any(np.where(is_bad[tri.triangles], True, False), axis=-1)
+    print(np.count_nonzero(mask))
+    tri.set_mask(mask)
     with tqdm(total=nsubr) as pbar:
         for i, raxis1 in enumerate(r_m):
             p = y_dB[i, :]
@@ -120,11 +132,12 @@ def plot_images(y):
             # ax.pcolormesh(az, ze_deg, p, vmin=0, vmax=ymax)
             # ico.plot(p, ax=ax)
             pbar.set_description(f"{p.shape}")
-            plot_skymap(ax, p, tri=tri, cmap="viridis", vmin=0, vmax=ymax, levels=20)
-            # ax.scatter(az, np.rad2deg(ze), c=p, s=10)
+            # plot_skymap(ax, p, tri=tri, cmap=cmap, norm=norm, levels=20)
+            ax.scatter(az, np.rad2deg(ze), c=p, s=10, cmap=cmap, norm=norm)
             ax.set_title(f"{raxis1/1e3:.02f} km")
             ax.set_thetagrids(range(0, 360, 45), [])
             ax.set_rgrids(range(0, 11, 10), [])
+            ax.set_rlim(0, zemax)
             ax.plot(az0, np.rad2deg(ze0), "ro", mfc="none", ms=10)
             pbar.update(1)
     fig.tight_layout()
@@ -144,4 +157,44 @@ plt.gca().xaxis.set_major_formatter("{x:.2f} km")
 plt.gca().yaxis.set_major_formatter("{x:.0f} dB")
 plt.ylim(-40, 5)
 plt.tight_layout()
+# %%
+
+# %%
+A = aa.T
+A /= np.linalg.norm(A, axis=0, keepdims=True)
+A1 = np.linalg.pinv(A)
+
+# %%
+lambda_ = 1e-4
+
+MAXITER = 100
+STEPITER = 10
+
+x_, info = basis_pursuit_admm(
+        A, x.reshape(1, -1), threshold=lambda_,
+        maxiter=MAXITER, stepiter=STEPITER, patience=20,
+        Ai=A1, info=True,)
+
+fig, ax1 = plt.subplots(figsize=(6, 3))
+ax1.plot(info["mse"].ravel())
+ax1.axvline(info["i"], c="k", ls=":")
+ax1.set_yscale("log")
+fig.tight_layout()
+
+# %%
+ymaxs3 = plot_images(np.abs(x_).reshape(y2.shape))
+# %%
+ymaxs_dB = dB(ymaxs, "max")
+ymaxs2_dB = dB(ymaxs2, "max")
+ymaxs3_dB = dB(ymaxs3, "max")
+plt.figure(figsize=(10, 3))
+plt.plot(r_m / 1e3, ymaxs_dB, marker=".")
+plt.plot(r_m / 1e3, ymaxs2_dB, marker=".")
+plt.plot(r_m / 1e3, ymaxs3_dB, marker=".")
+plt.axvline(target_distance / 1e3, c="k", ls=":")
+plt.gca().xaxis.set_major_formatter("{x:.2f} km")
+plt.gca().yaxis.set_major_formatter("{x:.0f} dB")
+plt.ylim(-40, 5)
+plt.tight_layout()# %%
+
 # %%
