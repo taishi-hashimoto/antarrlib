@@ -108,8 +108,8 @@ def plot_images(y, zemax=10):
     # Color range.
     noi = np.median(y)
     y_dB = dB(y, noi)
-    ymax = np.max(y_dB)
-    ymaxs = np.max(y, axis=1)
+    ymax = np.nanmax(y_dB)
+    ymaxs = np.nanmax(y, axis=1)
     is_bad = np.isnan(y_dB.ravel())
     y_dB.flat[is_bad] = 0
     cmap = "viridis"
@@ -121,19 +121,14 @@ def plot_images(y, zemax=10):
         ax.set_rgrids([], [])
     ze, az = ico.to_direction()[indices, :].T
     tri = triang_skymap(ze, az, degrees=False)
-    print(is_bad[tri.triangles])
     mask = np.any(np.where(is_bad[tri.triangles], True, False), axis=-1)
-    print(np.count_nonzero(mask))
     tri.set_mask(mask)
     with tqdm(total=nsubr) as pbar:
         for i, raxis1 in enumerate(r_m):
             p = y_dB[i, :]
             ax = axes.flat[i]
-            # ax.pcolormesh(az, ze_deg, p, vmin=0, vmax=ymax)
-            # ico.plot(p, ax=ax)
             pbar.set_description(f"{p.shape}")
-            # plot_skymap(ax, p, tri=tri, cmap=cmap, norm=norm, levels=20)
-            ax.scatter(az, np.rad2deg(ze), c=p, s=10, cmap=cmap, norm=norm)
+            plot_skymap(ax, p, tri=tri, cmap=cmap, norm=norm, levels=20)
             ax.set_title(f"{raxis1/1e3:.02f} km")
             ax.set_thetagrids(range(0, 360, 45), [])
             ax.set_rgrids(range(0, 11, 10), [])
@@ -165,10 +160,10 @@ A /= np.linalg.norm(A, axis=0, keepdims=True)
 A1 = np.linalg.pinv(A)
 
 # %%
-lambda_ = 1e-4
+lambda_ = 1e-3
 
-MAXITER = 100
-STEPITER = 10
+MAXITER = 1000
+STEPITER = 100
 
 x_, info = basis_pursuit_admm(
         A, x.reshape(1, -1), threshold=lambda_,
@@ -176,7 +171,7 @@ x_, info = basis_pursuit_admm(
         Ai=A1, info=True,)
 
 fig, ax1 = plt.subplots(figsize=(6, 3))
-ax1.plot(info["mse"].ravel())
+ax1.plot(info["diff_x"].ravel())
 ax1.axvline(info["i"], c="k", ls=":")
 ax1.set_yscale("log")
 fig.tight_layout()
