@@ -119,6 +119,7 @@ def plot_images(y, zemax=10):
     for ax in axes.flat:
         ax.set_thetagrids([], [])
         ax.set_rgrids([], [])
+        
     ze, az = ico.to_direction()[indices, :].T
     tri = triang_skymap(ze, az, degrees=False)
     mask = np.any(np.where(is_bad[tri.triangles], True, False), axis=-1)
@@ -127,6 +128,7 @@ def plot_images(y, zemax=10):
         for i, raxis1 in enumerate(r_m):
             p = y_dB[i, :]
             ax = axes.flat[i]
+            ax.set_facecolor("k")
             pbar.set_description(f"{p.shape}")
             plot_skymap(ax, p, tri=tri, cmap=cmap, norm=norm, levels=20)
             ax.set_title(f"{raxis1/1e3:.02f} km")
@@ -160,18 +162,19 @@ A /= np.linalg.norm(A, axis=0, keepdims=True)
 A1 = np.linalg.pinv(A)
 
 # %%
-lambda_ = 1e-3
+lambda_ = 1e-2
 
 MAXITER = 1000
 STEPITER = 100
 
 x_, info = basis_pursuit_admm(
         A, x.reshape(1, -1), threshold=lambda_,
-        maxiter=MAXITER, stepiter=STEPITER, patience=20,
+        maxiter=MAXITER, stepiter=STEPITER, patience=10,
+        atol=1e-5, rtol=1e-4,
         Ai=A1, info=True,)
-
+state = info["state"]
 fig, ax1 = plt.subplots(figsize=(6, 3))
-ax1.plot(info["diff_x"].ravel())
+ax1.plot(state.diff_x.T)
 ax1.axvline(info["i"], c="k", ls=":")
 ax1.set_yscale("log")
 fig.tight_layout()
@@ -192,4 +195,29 @@ plt.gca().yaxis.set_major_formatter("{x:.0f} dB")
 plt.ylim(-40, 5)
 plt.tight_layout()# %%
 
+# %%
+
+state = info["state"]
+fig, axes = plt.subplots(2, 2, figsize=(10, 3))
+ax = axes[0, 0]
+ax.set_yscale("log")
+ax.grid()
+ax.plot(state.diff_x.T)
+ax.set_title("Convergence of x")
+ax = axes[0, 1]
+ax.set_yscale("log")
+ax.grid()
+ax.plot(state.l1_norm.T)
+ax.set_title("Convergence of l1")
+ax = axes[1, 0]
+ax.set_yscale("log")
+ax.grid()
+ax.plot(state.res_prim.T)
+ax.set_title("Primal Residual")
+ax = axes[1, 1]
+ax.set_yscale("log")
+ax.grid()
+ax.plot(state.res_dual.T)
+ax.set_title("Dual Residual")
+fig.tight_layout()
 # %%
