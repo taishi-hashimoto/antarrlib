@@ -180,7 +180,7 @@ ax1.set_yscale("log")
 fig.tight_layout()
 
 # %%
-ymaxs3 = plot_images(np.abs(x_).reshape(y2.shape))
+ymaxs3 = plot_images(np.square(np.abs(x_)).reshape(y2.shape))
 # %%
 ymaxs_dB = dB(ymaxs, "max")
 ymaxs2_dB = dB(ymaxs2, "max")
