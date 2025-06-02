@@ -10,6 +10,7 @@ from icogrid import Icogrid
 from icogrid.skymap import direction, plot_skymap, triang_skymap
 
 from bpadmm import basis_pursuit_admm
+from bpadmm.jax import cosine_decay_schedule
 
 
 c0 = 299792458.0  # Speed of light [m/s]
@@ -157,25 +158,28 @@ plt.tight_layout()
 # %%
 
 # %%
+import jax.numpy as jnp
 A = aa.T
 A /= np.linalg.norm(A, axis=0, keepdims=True)
 A1 = np.linalg.pinv(A)
 
 # %%
-lambda_ = 1e-2
 
 MAXITER = 1000
 STEPITER = 100
 
-x_, info = basis_pursuit_admm(
-        A, x.reshape(1, -1), threshold=lambda_,
+threshold = cosine_decay_schedule(MAXITER * STEPITER, 1e-2, 1e-3)
+
+result = basis_pursuit_admm(
+        A, x.reshape(1, -1), threshold=threshold,
         maxiter=MAXITER, stepiter=STEPITER, patience=10,
         atol=1e-5, rtol=1e-4,
         Ai=A1, info=True,)
-state = info["state"]
+x_ = result.x
+state = result.state
 fig, ax1 = plt.subplots(figsize=(6, 3))
 ax1.plot(state.diff_x.T)
-ax1.axvline(info["i"], c="k", ls=":")
+ax1.axvline(result.nit, c="k", ls=":")
 ax1.set_yscale("log")
 fig.tight_layout()
 
@@ -197,7 +201,7 @@ plt.tight_layout()# %%
 
 # %%
 
-state = info["state"]
+state = result.state
 fig, axes = plt.subplots(2, 2, figsize=(10, 3))
 ax = axes[0, 0]
 ax.set_yscale("log")
