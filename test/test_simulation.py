@@ -168,12 +168,12 @@ A1 = np.linalg.pinv(A)
 MAXITER = 1000
 STEPITER = 100
 
-threshold = cosine_decay_schedule(MAXITER * STEPITER, 1e-2, 1e-3)
+threshold = cosine_decay_schedule(MAXITER * STEPITER, 1e-1, 1e-3)
 
 result = basis_pursuit_admm(
         A, x.reshape(1, -1), threshold=threshold,
         maxiter=MAXITER, stepiter=STEPITER, patience=10,
-        atol=1e-5, rtol=1e-4,
+        atol=1e-6, rtol=1e-5,
         Ai=A1, info=True,)
 x_ = result.x
 state = result.state
