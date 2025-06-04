@@ -151,17 +151,6 @@ ymaxs = plot_images(y)
 # %%
 ymaxs2 = plot_images(y2)
 # %%
-ymaxs_dB = dB(ymaxs, "max")
-ymaxs2_dB = dB(ymaxs2, "max")
-plt.figure(figsize=(10, 3))
-plt.plot(r_m/1e3, ymaxs_dB, marker=".")
-plt.plot(r_m/1e3, ymaxs2_dB, marker=".")
-plt.axvline(target_distance/1e3, c="k", ls=":")
-plt.gca().xaxis.set_major_formatter("{x:.2f} km")
-plt.gca().yaxis.set_major_formatter("{x:.0f} dB")
-plt.ylim(-40, 5)
-plt.tight_layout()
-# %%
 
 a0 = steering_vector(k, antenna_positions, r_m, ico.vertices).reshape(-1, nchan) / np.sqrt(nchan)
 
@@ -177,28 +166,23 @@ indices2 = rng.choice(len(ico)*nsubr, size=ndirs_eval, replace=False)
 
 v = a0[indices2]
 
-
 C = np.square(np.abs(v.conj() @ a2.T))
-# scaling = np.linalg.norm(C, axis=1, keepdims=True)  # row-wise scale
-# C /= scaling  # normalize C for each row
-# C /= np.linalg.norm(C, axis=0, keepdims=True)
 
 b = np.real(np.einsum('lm,mn,ln->l', v.conj(), rxx, v))  # shape (L,)
-# b /= scaling.squeeze()
 
 Ci = np.linalg.pinv(C)
 
 # %%
 
 MAXITER = 1000
-STEPITER = 100
+STEPITER = 50
 
 threshold = cosine_decay_schedule(MAXITER * STEPITER, 0.1, 1e-3) * np.max(b)
 
 result = basis_pursuit_admm(
         C, b, threshold=threshold,
         maxiter=MAXITER, stepiter=STEPITER, patience=50,
-        Ai=Ci, atol=1e-4, rtol=1e-5, init_x=y2.reshape(1, -1).astype(np.complex128),)
+        Ai=Ci, init_x=y2)
 
 x_ = result.x
 state = result.state
@@ -234,7 +218,7 @@ result
 
 # %%
 ymaxs4 = plot_images(np.where(x_.real > 0, x_.real, np.nan).reshape(nsubr, -1), scatter=False)
-# %%
+
 ymaxs_dB = dB(ymaxs, "max")
 ymaxs2_dB = dB(ymaxs2, "max")
 ymaxs4_dB = dB(ymaxs4, "max")
