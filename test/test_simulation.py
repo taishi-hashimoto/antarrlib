@@ -109,13 +109,14 @@ if nrow * ncol < nsubr:
 
 
 # Plotting method.
-def plot_images(y, zemax=10):
+def plot_images(y, zemax=10, scatter=False):
     # Color range.
     y_dB = dB(y, "max")
     ymaxs = np.nanmax(y, axis=1)
     is_bad = np.isnan(y_dB.ravel())
-    y_dB.flat[is_bad] = 0
-    cmap = "viridis"
+    y_dB.flat[is_bad] = np.nan if scatter else -40
+    cmap = plt.get_cmap("viridis").copy()
+    cmap.set_under("k", 1.0)  # Set bad values to black.
     norm = Normalize(vmin=-20, vmax=0)
 
     fig, axes = plt.subplots(nrow, ncol, figsize=(12, 8), subplot_kw=dict(projection="polar"))
@@ -125,15 +126,18 @@ def plot_images(y, zemax=10):
         
     ze, az = ico.to_direction()[indices, :].T
     tri = triang_skymap(ze, az, degrees=False)
-    mask = np.any(np.where(is_bad[tri.triangles], True, False), axis=-1)
-    tri.set_mask(mask)
+    # mask = np.any(np.where(is_bad[tri.triangles], True, False), axis=-1)
+    # tri.set_mask(mask)
     with tqdm(total=nsubr) as pbar:
         for i, raxis1 in enumerate(r_m):
             p = y_dB[i, :]
             ax = axes.flat[i]
             ax.set_facecolor("k")
             pbar.set_description(f"{p.shape}")
-            plot_skymap(ax, p, tri=tri, cmap=cmap, norm=norm, levels=20)
+            if scatter:
+                ax.scatter(az, np.rad2deg(ze), c=p, cmap=cmap, norm=norm, s=1)
+            else:
+                plot_skymap(ax, p, tri=tri, cmap=cmap, norm=norm, levels=20)
             ax.set_title(f"{raxis1/1e3:.02f} km")
             ax.set_thetagrids(range(0, 360, 45), [])
             ax.set_rgrids(range(0, 11, 10), [])
@@ -157,72 +161,6 @@ plt.gca().xaxis.set_major_formatter("{x:.2f} km")
 plt.gca().yaxis.set_major_formatter("{x:.0f} dB")
 plt.ylim(-40, 5)
 plt.tight_layout()
-# %%
-
-A = aa.T
-A /= np.linalg.norm(A, axis=0, keepdims=True)
-A1 = np.linalg.pinv(A)
-
-# %%
-
-MAXITER = 1000
-STEPITER = 100
-
-threshold = cosine_decay_schedule(MAXITER * STEPITER, 1e-1, 1e-3)
-
-result = basis_pursuit_admm(
-        A, x.reshape(1, -1), threshold=threshold,
-        maxiter=MAXITER, stepiter=STEPITER, patience=20,
-        Ai=A1, info=True,)
-x_ = result.x
-state = result.state
-fig, ax1 = plt.subplots(figsize=(6, 3))
-ax1.plot(state.diff_x.T)
-ax1.axvline(result.nit, c="k", ls=":")
-ax1.set_yscale("log")
-fig.tight_layout()
-
-# %%
-ymaxs3 = plot_images(np.square(np.abs(x_)).reshape(y2.shape))
-# %%
-ymaxs_dB = dB(ymaxs, "max")
-ymaxs2_dB = dB(ymaxs2, "max")
-ymaxs3_dB = dB(ymaxs3, "max")
-plt.figure(figsize=(10, 3))
-plt.plot(r_m / 1e3, ymaxs_dB, marker=".")
-plt.plot(r_m / 1e3, ymaxs2_dB, marker=".")
-plt.plot(r_m / 1e3, ymaxs3_dB, marker=".")
-plt.axvline(target_distance / 1e3, c="k", ls=":")
-plt.gca().xaxis.set_major_formatter("{x:.2f} km")
-plt.gca().yaxis.set_major_formatter("{x:.0f} dB")
-plt.ylim(-40, 5)
-plt.tight_layout()# %%
-
-# %%
-
-state = result.state
-fig, axes = plt.subplots(2, 2, figsize=(10, 3))
-ax = axes[0, 0]
-ax.set_yscale("log")
-ax.grid()
-ax.plot(state.diff_x.T)
-ax.set_title("Convergence of x")
-ax = axes[0, 1]
-ax.set_yscale("log")
-ax.grid()
-ax.plot(state.l1_norm.T)
-ax.set_title("Convergence of l1")
-ax = axes[1, 0]
-ax.set_yscale("log")
-ax.grid()
-ax.plot(state.res_prim.T)
-ax.set_title("Primal Residual")
-ax = axes[1, 1]
-ax.set_yscale("log")
-ax.grid()
-ax.plot(state.res_dual.T)
-ax.set_title("Dual Residual")
-fig.tight_layout()
 # %%
 
 a0 = steering_vector(k, antenna_positions, r_m, ico.vertices).reshape(-1, nchan) / np.sqrt(nchan)
@@ -255,12 +193,12 @@ Ci = np.linalg.pinv(C)
 MAXITER = 1000
 STEPITER = 100
 
-threshold = cosine_decay_schedule(MAXITER * STEPITER, 0.1, 1e-4)
+threshold = cosine_decay_schedule(MAXITER * STEPITER, 0.1, 1e-3) * np.max(b)
 
 result = basis_pursuit_admm(
         C, b, threshold=threshold,
         maxiter=MAXITER, stepiter=STEPITER, patience=50,
-        Ai=Ci, atol=1e-4, rtol=1e-5, init_x=None)
+        Ai=Ci, atol=1e-4, rtol=1e-5, init_x=y2.reshape(1, -1).astype(np.complex128),)
 
 x_ = result.x
 state = result.state
@@ -295,51 +233,14 @@ fig.tight_layout()
 result
 
 # %%
-
-# indices_ea = indices.reshape(nsubr, -1) % len(ico)
-# directions = ico.to_direction()
-
-# # Plotting method.
-# def plot_images(y, zemax=10):
-#     # Color range.
-#     y_dB = dB(y, "max")
-#     ymaxs = np.nanmax(y, axis=1)
-#     is_bad = np.isnan(y_dB.ravel())
-#     y_dB.flat[is_bad] = 0
-#     cmap = "viridis"
-#     norm = Normalize(vmin=-20, vmax=0)
-
-#     fig, axes = plt.subplots(nrow, ncol, figsize=(12, 8), subplot_kw=dict(projection="polar"))
-#     for ax in axes.flat:
-#         ax.set_thetagrids([], [])
-#         ax.set_rgrids([], [])
-#     with tqdm(total=nsubr) as pbar:
-#         for i, raxis1 in enumerate(r_m):
-#             ze, az = directions[indices_ea[i], :].T
-#             tri = triang_skymap(ze, az, degrees=False)
-#             mask = np.any(np.where(is_bad[tri.triangles], True, False), axis=-1)
-#             tri.set_mask(mask)
-#             p = y_dB[i, :]
-#             ax = axes.flat[i]
-#             ax.set_facecolor("k")
-#             pbar.set_description(f"{p.shape}")
-#             plot_skymap(ax, p, tri=tri, cmap=cmap, norm=norm, levels=20)
-#             ax.set_title(f"{raxis1/1e3:.02f} km")
-#             ax.set_thetagrids(range(0, 360, 45), [])
-#             ax.set_rgrids(range(0, 11, 10), [])
-#             ax.set_rlim(0, zemax)
-#             ax.plot(az0, np.rad2deg(ze0), "ro", mfc="none", ms=10)
-#             pbar.update(1)
-#     fig.tight_layout()
-#     return ymaxs
-
-# %%
-ymaxs4 = plot_images(np.square(np.abs(x_)).reshape(nsubr, -1))
+ymaxs4 = plot_images(np.where(x_.real > 0, x_.real, np.nan).reshape(nsubr, -1), scatter=False)
 # %%
 ymaxs_dB = dB(ymaxs, "max")
+ymaxs2_dB = dB(ymaxs2, "max")
 ymaxs4_dB = dB(ymaxs4, "max")
 plt.figure(figsize=(10, 3))
 plt.plot(r_m/1e3, ymaxs_dB, marker=".")
+plt.plot(r_m / 1e3, ymaxs2_dB, marker=".")
 plt.plot(r_m/1e3, ymaxs4_dB, marker=".")
 plt.axvline(target_distance/1e3, c="k", ls=":")
 plt.gca().xaxis.set_major_formatter("{x:.2f} km")
