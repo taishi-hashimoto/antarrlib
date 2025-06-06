@@ -32,10 +32,11 @@ def steering_vector(
     p: np.ndarray,
     r: np.ndarray,
     v: np.ndarray,
+    normalize: bool = False,
 ) -> np.ndarray:
     """Generalized steering vector for frequency and spatial domain interferometry.
 
-    The result is not normalized.
+    The result is not normalized by default.
 
     Parameters
     ==========
@@ -47,7 +48,12 @@ def steering_vector(
         The range and subrange gate bounds `[nr, nsubr]`, where `nr` is the number of range gate and
         `nsubr` is the number of subdivision. Can be computed by `subrange_centers()`.
     v: ndarray
-        Radial vectors of the size `[ndir, 3]`, where `ndir` is the number of directions.
+        Radial vectors of the size `[ndir, 3]`, `[nsubr, ndir, 3]`, or `[nr, nsubr, ndir, 3]`.
+        Here, `ndir` is the number of directions.
+        For the latter two cases, radial vectors can be different for each subrange/range gate.
+    normalize: bool, optional
+        If True, the steering vector is normalized to have unit norm.
+        Note this regards the last two axes, i.e., the antenna and frequency axes, to be flattened.
 
     Returns
     =======
@@ -57,7 +63,15 @@ def steering_vector(
     k = np.ravel(k)
     p = np.reshape(p, (-1, 3))
     r = np.atleast_2d(r)[:, :, None, None]
-    v = np.reshape(v, (-1, 3))[None, None, :, :]
+    v = np.atleast_2d(v)
+    if v.ndim == 2:  # [ndir, 3]
+        v = v[None, None, :, :]
+    elif v.ndim == 3:  # [nsubr, ndir, 3]
+        v = v[None, :, :, :]
+    elif v.ndim == 4:  # [nr, nsubr, ndir, 3]
+        pass
+    else:
+        raise ValueError(f"Invalid shape of v: {v.shape}. Expected [ndir, 3], [nsubr, ndir, 3], or [nr, nsubr, ndir, 3].")
 
     # Tx distance is the subrange gate bounds.
     # Here, we assume that r is measured from the center of the antenna array.
@@ -69,9 +83,21 @@ def steering_vector(
     # Rx distance is measured for each antenna [nr, nsubr, ndir, nant].
     rx_distance = np.linalg.norm(rx_positions[..., None, :] - p[..., :], axis=-1)
 
+    # Two way distance.
     distance = tx_distance + rx_distance
+
+    # Unnormalized steering vector.
     a = np.exp(1j * k[None, None, None, :, None] * distance[..., None, :])
 
+    if normalize:
+        # Keep the original shape.
+        shape = a.shape
+        # Flatten the last two axes (frequency and antenna) to a single channel axis.
+        a.shape = a.shape[:3] + (-1,)
+        # Normalize the steering vector along the channel axis.
+        a /= np.linalg.norm(a, axis=-1, keepdims=True)
+        # Restore the original shape.
+        a.shape = shape
     return a
 
 
