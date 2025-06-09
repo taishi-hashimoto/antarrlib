@@ -102,14 +102,17 @@ def steering_vector(
 
 
 def capon(
-    rxx_i: jnp.ndarray,
-    a: jnp.ndarray,
-):
+    rxx: np.ndarray,
+    a: np.ndarray,
+    regularization: float = None,
+    batch_size: int = None,
+    devices=None,
+) -> np.ndarray:
     """Capon beamforming.
     
     Parameters
     ==========
-    rxx_i: ndarray
+    rxx: ndarray
         The covariance matrix of the size `[nchan, nchan]`, where `nchan` is
         the number of channels.
         `nchan = nfreq * nant` for FDI + SDI cases.
@@ -123,11 +126,61 @@ def capon(
     spc: array of float of the size [nconst]
         Capon spectrum for `nconst` set of constraints.
     """
-    rxx_i = jnp.array(rxx_i)
-    a = jnp.array(a)
+    rxx = np.array(rxx)
+
+    if regularization is not None:
+        rxx += regularization * np.eye(rxx.shape[0])
+
+    if devices is None:
+        devices = jax.devices()
+    ndevices = len(devices)
 
     def each(a1: jnp.ndarray) -> jnp.ndarray:
         """Compute the Capon spectrum for each steering vector."""
-        return 1 / jnp.abs(a1.conj().T @ rxx_i @ a1.T)
+        return jnp.abs(1. / jnp.vdot(a1, jnp.linalg.solve(rxx, a1)))
 
-    return jax.vmap(each)(a)
+    if batch_size is None:
+        batch_size = len(a)
+    nbatches = len(a) // batch_size
+
+    if ndevices == 1 or nbatches == 1:  # Use vmap
+        batched_each = jax.vmap(each, in_axes=(0,))
+        result = np.empty((a.shape[0],), dtype=np.float64)
+        for i in range(0, a.shape[0], batch_size):
+            result[i:i + batch_size] = batched_each(a[i:i + batch_size])
+        return result
+    else:  # Use pmap
+        batches_per_device = nbatches // ndevices
+        rem = nbatches - batches_per_device * ndevices
+        nadd = 0
+        if rem != 0:
+            # Add small number of dummy tasks to make it divisible by n_devices
+            nadd = ndevices - rem
+            a = _extend(a, nadd)
+
+        # Split the steering vector into batches for each device.
+        a = _split(a, ndevices)
+
+        result = _merge(jax.pmap(jax.vmap(each, in_axes=(0,)))(a))
+        return result[:-nadd] if nadd > 0 else result
+
+
+def _extend(arr: np.ndarray, nadd: int):
+    """Extend rows by nadd"""
+    nsamples, *rest = arr.shape
+    return np.resize(arr, (nsamples + nadd, *rest))
+
+
+def _split(arr: np.ndarray, ndevices: int):
+    """Reshape arr so that its leading axis becomes [ndevices, batches_per_device, …]."""
+    b, *rest = arr.shape
+    if b % ndevices != 0:
+        raise ValueError(f"Batch size {b} not divisible by #devices {ndevices}")
+    batches_per_device = b // ndevices
+    return arr.reshape(ndevices, batches_per_device, *rest)
+
+
+def _merge(arr: np.ndarray):
+    """Inverse of _split()."""
+    ndevices, batches_per_device, *rest = arr.shape
+    return arr.reshape(ndevices * batches_per_device, *rest)
