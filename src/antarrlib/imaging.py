@@ -101,6 +101,49 @@ def steering_vector(
     return a
 
 
+def normalize_rxx(rxx: np.ndarray) -> np.ndarray:
+    """Normalize and rescale the covariance matrix.
+
+    Parameters
+    ==========
+    rxx: ndarray
+        The covariance matrix of the size `[nchan, nchan]`, where `nchan` is
+        the number of channels.
+        `nchan = nfreq * nant` for FDI + SDI cases.
+
+    Returns
+    =======
+    rxx: ndarray
+        The normalized and rescaled correlation matrix.
+    """
+    rxx = np.array(rxx)
+    diag = np.sqrt(np.abs(np.diag(rxx)))
+    rxx_normalized = rxx / np.outer(diag, diag)
+    mean_power = np.mean(np.real(np.diag(rxx)))
+    rxx_scaled = rxx_normalized * mean_power
+    return rxx_scaled
+
+
+def gaussian_weights(nsubr: int) -> np.ndarray:
+    """Compute Gaussian weights for subrange gates.
+
+    Parameters
+    ==========
+    nsubr: int
+        Number of subranges.
+
+    Returns
+    =======
+    weights: ndarray
+        Gaussian weights of the size `[nsubr]`.
+    """
+    i = np.arange(1, nsubr + 1)
+    center = (nsubr + 1) / 2
+    sigma2 = (nsubr / 2) ** 2
+    weights = np.exp(-((i - center) ** 2) / sigma2)
+    return weights  # shape: (nsubr,)
+
+
 def capon(
     rxx: np.ndarray,
     a: np.ndarray,

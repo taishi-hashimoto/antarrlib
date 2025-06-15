@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "antarrlib"
-version = "0.2.0"
+version = "0.2.1"
 description = "Basic operations on antenna array."
 authors = ["Taishi Hashimoto <hashimoto.taishi@nipr.ac.jp>"]
 packages = [
