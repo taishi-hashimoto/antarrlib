@@ -19,7 +19,6 @@ def subrange_centers(r0: np.ndarray, rr: np.ndarray, nsubr: int, extend: int = 0
         Number of subranges.
     extend: int, optional
         If positive, extend the range gate bounds by `extend * rr` on both sides.
-        This is useful for visualization purposes.
     
     Returns
     =======
