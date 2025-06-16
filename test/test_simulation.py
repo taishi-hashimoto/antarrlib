@@ -1,6 +1,4 @@
 # %%
-import os
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
@@ -95,10 +93,9 @@ y = np.abs(np.sum(a.conj() * received_signals, axis=(-1, -2)))**2
 nchan = num_antennas * num_freqs
 x = received_signals.ravel()
 rxx = x[:, None].dot(x.conj()[None, :])
-rxx_i = np.linalg.inv(rxx + 1e-4 * np.eye(nchan))
 aa = a.reshape(-1, nchan)
 # %%
-y2 = capon(rxx_i, aa).reshape((nsubr, -1))
+y2 = capon(rxx + 1e-4 * np.eye(nchan), aa).reshape((nsubr, -1))
 # %%
 # Determin nrows and ncols in the figure.
 # nrow = int(np.sqrt(nsubr))
@@ -109,14 +106,13 @@ if nrow * ncol < nsubr:
 
 
 # Plotting method.
-def plot_images(y, zemax=10, scatter=False):
+def plot_images(y, zemax=10):
     # Color range.
     y_dB = dB(y, "max")
     ymaxs = np.nanmax(y, axis=1)
     is_bad = np.isnan(y_dB.ravel())
-    y_dB.flat[is_bad] = np.nan if scatter else -40
-    cmap = plt.get_cmap("viridis").copy()
-    cmap.set_under("k", 1.0)  # Set bad values to black.
+    y_dB.flat[is_bad] = 0
+    cmap = "viridis"
     norm = Normalize(vmin=-20, vmax=0)
 
     fig, axes = plt.subplots(nrow, ncol, figsize=(12, 8), subplot_kw=dict(projection="polar"))
@@ -126,18 +122,15 @@ def plot_images(y, zemax=10, scatter=False):
         
     ze, az = ico.to_direction()[indices, :].T
     tri = triang_skymap(ze, az, degrees=False)
-    # mask = np.any(np.where(is_bad[tri.triangles], True, False), axis=-1)
-    # tri.set_mask(mask)
+    mask = np.any(np.where(is_bad[tri.triangles], True, False), axis=-1)
+    tri.set_mask(mask)
     with tqdm(total=nsubr) as pbar:
         for i, raxis1 in enumerate(r_m):
             p = y_dB[i, :]
             ax = axes.flat[i]
             ax.set_facecolor("k")
             pbar.set_description(f"{p.shape}")
-            if scatter:
-                ax.scatter(az, np.rad2deg(ze), c=p, cmap=cmap, norm=norm, s=1)
-            else:
-                plot_skymap(ax, p, tri=tri, cmap=cmap, norm=norm, levels=20)
+            plot_skymap(ax, p, tri=tri, cmap=cmap, norm=norm, levels=20)
             ax.set_title(f"{raxis1/1e3:.02f} km")
             ax.set_thetagrids(range(0, 360, 45), [])
             ax.set_rgrids(range(0, 11, 10), [])
@@ -151,99 +144,84 @@ ymaxs = plot_images(y)
 # %%
 ymaxs2 = plot_images(y2)
 # %%
-
-a0 = steering_vector(k, antenna_positions, r_m, ico.vertices).reshape(-1, nchan) / np.sqrt(nchan)
-
-# Decimate grid to some value.
-ndirs_req = 40000
-rng = np.random.default_rng(1)
-indices = rng.choice(len(ico), size=ndirs_req, replace=False)
-
-a2 = steering_vector(k, antenna_positions, r_m, ico.vertices[indices]).reshape(-1, nchan) / np.sqrt(nchan)
-
-ndirs_eval = 100
-indices2 = rng.choice(len(ico)*nsubr, size=ndirs_eval, replace=False)
-
-v = a0[indices2]
-
-C = np.square(np.abs(v.conj() @ a2.T))
-
-b = np.real(np.einsum('lm,mn,ln->l', v.conj(), rxx, v))  # shape (L,)
-
-Ci = np.linalg.pinv(C)
-
-# %%
-
-MAXITER = 1000
-STEPITER = 50
-
-threshold = cosine_decay_schedule(MAXITER * STEPITER, 0.1, 1e-3) * np.max(b)
-
-result = basis_pursuit_admm(
-        C, b, threshold=threshold,
-        maxiter=MAXITER, stepiter=STEPITER, patience=50,
-        Ai=Ci, init_x=y2)
-
-x_ = result.x
-state = result.state
-
-# Plot convergence.
-fig, axes = plt.subplots(2, 2, figsize=(10, 3))
-ax = axes[0, 0]
-ax.set_yscale("log")
-ax.grid()
-ax.plot(state.diff_x.T)
-ax.axvline(result.nit, c="k", ls=":")
-ax.set_title("Convergence of x")
-ax = axes[0, 1]
-ax.set_yscale("log")
-ax.grid()
-ax.plot(state.l1_norm.T)
-ax.axvline(result.nit, c="k", ls=":")
-ax.set_title("Convergence of l1")
-ax = axes[1, 0]
-ax.set_yscale("log")
-ax.grid()
-ax.plot(state.res_prim.T)
-ax.axvline(result.nit, c="k", ls=":")
-ax.set_title("Primal Residual")
-ax = axes[1, 1]
-ax.set_yscale("log")
-ax.grid()
-ax.plot(state.res_dual.T)
-ax.axvline(result.nit, c="k", ls=":")
-ax.set_title("Dual Residual")
-fig.tight_layout()
-result
-
-# %%
-ymaxs4 = plot_images(np.where(x_.real > 0, x_.real, np.nan).reshape(nsubr, -1), scatter=False)
-
 ymaxs_dB = dB(ymaxs, "max")
 ymaxs2_dB = dB(ymaxs2, "max")
-ymaxs4_dB = dB(ymaxs4, "max")
 plt.figure(figsize=(10, 3))
 plt.plot(r_m/1e3, ymaxs_dB, marker=".")
-plt.plot(r_m / 1e3, ymaxs2_dB, marker=".")
-plt.plot(r_m/1e3, ymaxs4_dB, marker=".")
+plt.plot(r_m/1e3, ymaxs2_dB, marker=".")
 plt.axvline(target_distance/1e3, c="k", ls=":")
 plt.gca().xaxis.set_major_formatter("{x:.2f} km")
 plt.gca().yaxis.set_major_formatter("{x:.0f} dB")
 plt.ylim(-40, 5)
 plt.tight_layout()
 # %%
-# %%
+
+A = aa.T
+A /= np.linalg.norm(A, axis=0, keepdims=True)
+norm_A = np.linalg.norm(A, axis=0, keepdims=True)
+A /= norm_A
+y_ = x / norm_A
+# Compute pseudo-inverse of A.
+A1 = np.linalg.pinv(A)
 
 # %%
-import jax
-import jax.numpy as jnp
 
-# v: shape (L, M)  各ビーム方向のステアリングベクトル（L個）
-# rxx: shape (M, M)  相関行列
+MAXITER = 1000
+STEPITER = 100
 
-def each(vl: jnp.ndarray) -> jnp.ndarray:
-    """Compute beam output power at one direction."""
-    return jnp.real(vl.conj().T @ rxx @ vl)  # スカラー
+threshold = cosine_decay_schedule(MAXITER * STEPITER, 1e-1, 1e-3)
 
-# batched version: returns shape (L,)
-b_ = jax.vmap(each)(v)  # v: (L, M) → b: (L,)
+result = basis_pursuit_admm(
+        A, y_, threshold=threshold,
+        maxiter=MAXITER, stepiter=STEPITER, patience=20,
+        Ai=A1)
+x_ = result.x
+state = result.state
+fig, ax1 = plt.subplots(figsize=(6, 3))
+ax1.plot(state.diff_x.T)
+ax1.axvline(result.nit, c="k", ls=":")
+ax1.set_yscale("log")
+fig.tight_layout()
+
+# %%
+ymaxs3 = plot_images(np.square(np.abs(x_)).reshape(y2.shape))
+# %%
+ymaxs_dB = dB(ymaxs, "max")
+ymaxs2_dB = dB(ymaxs2, "max")
+ymaxs3_dB = dB(ymaxs3, "max")
+plt.figure(figsize=(10, 3))
+plt.plot(r_m / 1e3, ymaxs_dB, marker=".")
+plt.plot(r_m / 1e3, ymaxs2_dB, marker=".")
+plt.plot(r_m / 1e3, ymaxs3_dB, marker=".")
+plt.axvline(target_distance / 1e3, c="k", ls=":")
+plt.gca().xaxis.set_major_formatter("{x:.2f} km")
+plt.gca().yaxis.set_major_formatter("{x:.0f} dB")
+plt.ylim(-40, 5)
+plt.tight_layout()# %%
+
+# %%
+
+state = result.state
+fig, axes = plt.subplots(2, 2, figsize=(10, 3))
+ax = axes[0, 0]
+ax.set_yscale("log")
+ax.grid()
+ax.plot(state.diff_x.T)
+ax.set_title("Convergence of x")
+ax = axes[0, 1]
+ax.set_yscale("log")
+ax.grid()
+ax.plot(state.l1_norm.T)
+ax.set_title("Convergence of l1")
+ax = axes[1, 0]
+ax.set_yscale("log")
+ax.grid()
+ax.plot(state.res_prim.T)
+ax.set_title("Primal Residual")
+ax = axes[1, 1]
+ax.set_yscale("log")
+ax.grid()
+ax.plot(state.res_dual.T)
+ax.set_title("Dual Residual")
+fig.tight_layout()
+# %%
