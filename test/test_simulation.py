@@ -158,7 +158,7 @@ plt.tight_layout()
 
 A = aa.T
 A /= np.linalg.norm(A, axis=0, keepdims=True)
-norm_A = np.linalg.norm(A, axis=0, keepdims=True)
+norm_A = np.linalg.norm(A)
 A /= norm_A
 y_ = x / norm_A
 # Compute pseudo-inverse of A.

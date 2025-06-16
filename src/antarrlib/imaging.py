@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 
 
-def subrange_centers(r0: np.ndarray, rr: np.ndarray, nsubr: int) -> np.ndarray:
+def subrange_centers(r0: np.ndarray, rr: np.ndarray, nsubr: int, extend: int = 0) -> np.ndarray:
     """Compute the center of the subrange gates for each range gate bin.
 
     Assuming that the radar is located at the origin.
@@ -17,13 +17,18 @@ def subrange_centers(r0: np.ndarray, rr: np.ndarray, nsubr: int) -> np.ndarray:
         The range resolution
     nsubr: int
         Number of subranges.
+    extend: int, optional
+        If positive, extend the range gate bounds by `extend * rr` on both sides.
+        This is useful for visualization purposes.
     
     Returns
     =======
     c: float
         Subrange centers [nhigh, nsubr]
     """
-    csubr = (np.arange(nsubr) - nsubr/2 + 0.5) / nsubr + 0.5
+    ntotal = nsubr + 2 * extend
+    factor = ntotal / nsubr
+    csubr = (np.arange(ntotal) - ntotal/2 + 0.5) / ntotal * factor + 0.5
     return np.reshape(r0, (-1, 1)) + rr * np.reshape(csubr, (1, -1))
 
 
