@@ -128,22 +128,73 @@ def normalize_rxx(rxx: np.ndarray) -> np.ndarray:
     return rxx_scaled
 
 
-def gaussian_weights(nsubr: int) -> np.ndarray:
+def reconstruct_x(R, T, rank=None, unitary='identity', random_state=None):
+    """Reconstruct X from covariance matrix R.
+
+    This function reconstructs a matrix X such that `R := (1/T) * X * X^H`,
+    where R is a complex Hermitian positive definite matrix.
+
+    Parameters
+    ==========
+    R: np.ndarray
+        (N,N) complex Hermitian positive definite matrix `R := (1/T) * X * X^H`.
+    T: np.ndarray
+        Number of time samples used to compute R.
+    rank: int
+        The number of eigen values. Default is `min(rank(R), T)`.
+    unitary: str
+        Choice of right unitary matrix.
+        - 'identity'
+        - 'random'
+    """
+    # Eigenvalue decomposition
+    lam, V = np.linalg.eigh(R)            # Eigenvalue decomposition
+    idx = np.argsort(lam)[::-1]           # to descending order
+    lam, V = lam[idx], V[:, idx]
+
+    # rank
+    if rank is None:
+        rank = min((lam > np.finfo(float).eps * lam[0]).sum(), T)
+
+    lam_r = lam[:rank]
+    V_r   = V[:, :rank]
+    Lam_half = np.diag(np.sqrt(lam_r))
+
+    # Choose right unitary matrix
+    if unitary == 'identity':
+        U = np.hstack([np.eye(rank, dtype=complex),
+                       np.zeros((rank, T-rank), dtype=complex)])
+    elif unitary == 'random':
+        rng = np.random.default_rng(random_state)
+        Q, _ = np.linalg.qr(rng.standard_normal((rank, rank)) +
+                            1j*rng.standard_normal((rank, rank)))
+        U = np.hstack([Q, np.zeros((rank, T-rank), dtype=complex)])
+    else:
+        raise ValueError("unitary must be 'identity' or 'random'")
+
+    X = np.sqrt(T) * V_r @ Lam_half @ U
+    return X
+
+
+def gaussian_weights(nsubr: int, extend: int = 0) -> np.ndarray:
     """Compute Gaussian weights for subrange gates.
 
     Parameters
     ==========
     nsubr: int
         Number of subranges.
+    extend: int, optional
+        If positive, extend the range gate bounds on both sides to have overlapped
+        subrange gates.
 
     Returns
     =======
     weights: ndarray
         Gaussian weights of the size `[nsubr]`.
     """
-    i = np.arange(1, nsubr + 1)
-    center = (nsubr + 1) / 2
-    sigma2 = (nsubr / 2) ** 2
+    i = np.arange(1, nsubr + 2 * extend + 1)
+    center = (nsubr + 2 * extend + 1) / 2
+    sigma2 = (nsubr / 2) ** 2  # Use the same sigma even if extend != 0.
     weights = np.exp(-((i - center) ** 2) / sigma2)
     return weights  # shape: (nsubr,)
 
