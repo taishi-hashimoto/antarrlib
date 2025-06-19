@@ -82,7 +82,7 @@ def steering_vector(
     tx_distance = r
 
     # Rx positions are measured from the center of the antenna array.
-    rx_positions = v * r #+ np.mean(p, axis=0)[None, None, None, :]
+    rx_positions = v * r + np.mean(p, axis=0)[None, None, None, :]
 
     # Rx distance is measured for each antenna [nr, nsubr, ndir, nant].
     rx_distance = np.linalg.norm(rx_positions[..., None, :] - p[..., :], axis=-1)
