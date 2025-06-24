@@ -83,8 +83,8 @@ def compute_inner_volume_from_min_ze_max(ze_max_req, r_min, r_max, degrees=False
     else:
         ze_max = result.x[0]
 
-    volume = compute_inner_volume(ze_max, r_min, r_max, degrees=degrees)
-    volume["ze_max"] = ze_max
+    volume = compute_inner_volume(ze_max, r_min, r_max, degrees=degrees, error="raise")
+    volume["ze_max"] = result.x[0]
     volume["opt"] = result
     return volume
 
