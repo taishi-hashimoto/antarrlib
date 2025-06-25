@@ -66,7 +66,15 @@ def steering_vector(
     """
     k = np.ravel(k)
     p = np.reshape(p, (-1, 3))
-    r = np.atleast_2d(r)[:, :, None, None]
+    r = np.atleast_2d(r)
+    if r.ndim == 2:
+        r = r[:, :, None, None]
+    elif r.ndim == 3:  # [nr, nsubr, 1]
+        r = r[:, :, :, None]
+    elif r.ndim == 4:  # [nr, nsubr, ndir, 1]
+        pass
+    else:
+        raise ValueError(f"Invalid shape of r: {r.shape}. Expected [nr, nsubr], [nr, nsubr, 1], or [nr, nsubr, ndir, 1].")
     v = np.atleast_2d(v)
     if v.ndim == 2:  # [ndir, 3]
         v = v[None, None, :, :]
