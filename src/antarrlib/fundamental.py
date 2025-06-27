@@ -1,24 +1,25 @@
 "Compact library for antenna array."
 
-import numpy as np
 from typing import List, Tuple
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 
 SPEED_OF_LIGHT = 299792458.
 "Speed of light in m/s ~ 3e8 m/s."
 
 
-def freq2wlen(frequency: float) -> float:
+def freq2wlen(frequency: float | ArrayLike) -> float | NDArray[np.float64]:
     "Compute wave length from frequency."
-    return SPEED_OF_LIGHT / frequency
+    return SPEED_OF_LIGHT / np.array(frequency)
 
 
-def wlen2wnum(wavelength: float) -> float:
+def wlen2wnum(wavelength: float | ArrayLike) -> float | NDArray[np.float64]:
     "Compute wave number from wave length."
-    return 2. * np.pi / wavelength
+    return 2. * np.pi / np.array(wavelength)
 
 
-def freq2wnum(frequency: float) -> float:
+def freq2wnum(frequency: float | ArrayLike) -> float | NDArray[np.float64]:
     "Compute wave number from frequency."
     return wlen2wnum(freq2wlen(frequency))
 
