@@ -1,19 +1,20 @@
 "Imaging library."
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 import jax
 import jax.numpy as jnp
 
 
-def subrange_centers(r0: np.ndarray, rr: np.ndarray, nsubr: int, extend: int = 0) -> np.ndarray:
+def subrange_centers(r0: ArrayLike, rr: ArrayLike, nsubr: int, extend: int = 0) -> NDArray[np.float64]:
     """Compute the center of the subrange gates for each range gate bin.
 
     Assuming that the radar is located at the origin.
 
     Parameters
     ==========
-    r0: ndarray
+    r0: ArrayLike
         Lower bounds of the original range gate grid [nhigh]
-    rr: ndarray
+    rr: ArrayLike
         The range resolution
     nsubr: int
         Number of subranges.
@@ -28,16 +29,16 @@ def subrange_centers(r0: np.ndarray, rr: np.ndarray, nsubr: int, extend: int = 0
     ntotal = nsubr + 2 * extend
     factor = ntotal / nsubr
     csubr = (np.arange(ntotal) - ntotal/2 + 0.5) / ntotal * factor + 0.5
-    return np.reshape(r0, (-1, 1)) + rr * np.reshape(csubr, (1, -1))
+    return np.reshape(r0, (-1, 1)) + np.array(rr) * np.reshape(csubr, (1, -1))
 
 
 def steering_vector(
-    k: np.ndarray,
-    p: np.ndarray,
-    r: np.ndarray,
-    v: np.ndarray,
+    k: ArrayLike,
+    p: ArrayLike,
+    r: ArrayLike,
+    v: ArrayLike,
     normalize: bool = False,
-) -> np.ndarray:
+) -> NDArray[np.complex128]:
     """Generalized steering vector for frequency and spatial domain interferometry.
 
     The result is not normalized by default.
@@ -113,7 +114,7 @@ def steering_vector(
     return a
 
 
-def normalize_rxx(rxx: np.ndarray) -> np.ndarray:
+def normalize_rxx(rxx: ArrayLike) -> NDArray[np.complex128]:
     """Normalize and rescale the covariance matrix.
 
     Parameters
@@ -130,13 +131,13 @@ def normalize_rxx(rxx: np.ndarray) -> np.ndarray:
     """
     rxx = np.array(rxx)
     diag = np.sqrt(np.abs(np.diag(rxx)))
-    rxx_normalized = rxx / np.outer(diag, diag)
+    rxx_normalized = rxx / np.outer(diag, diag).astype(np.complex128)
     mean_power = np.mean(np.real(np.diag(rxx)))
     rxx_scaled = rxx_normalized * mean_power
     return rxx_scaled
 
 
-def reconstruct_x(R, T, rank=None, unitary='identity', random_state=None):
+def reconstruct_x(R: ArrayLike, T: int, rank=None, unitary='identity', random_state=None) -> NDArray[np.complex128]:
     """Reconstruct X from covariance matrix R.
 
     This function reconstructs a matrix X such that `R := (1/T) * X * X^H`,
@@ -156,7 +157,7 @@ def reconstruct_x(R, T, rank=None, unitary='identity', random_state=None):
         - 'random'
     """
     # Eigenvalue decomposition
-    lam, V = np.linalg.eigh(R)            # Eigenvalue decomposition
+    lam, V = np.linalg.eigh(np.array(R))            # Eigenvalue decomposition
     idx = np.argsort(lam)[::-1]           # to descending order
     lam, V = lam[idx], V[:, idx]
 
@@ -184,7 +185,7 @@ def reconstruct_x(R, T, rank=None, unitary='identity', random_state=None):
     return X
 
 
-def gaussian_weights(nsubr: int, extend: int = 0) -> np.ndarray:
+def gaussian_weights(nsubr: int, extend: int = 0) -> NDArray[np.float64]:
     """Compute Gaussian weights for subrange gates.
 
     Parameters
@@ -210,9 +211,9 @@ def gaussian_weights(nsubr: int, extend: int = 0) -> np.ndarray:
 def capon(
     rxx: np.ndarray,
     a: np.ndarray,
-    regularization: float = None,
-    batch_size: int = None,
-    devices=None,
+    regularization: float | None = None,
+    batch_size: int | None = None,
+    devices: list | None = None,
 ) -> np.ndarray:
     """Capon beamforming.
     
@@ -253,7 +254,7 @@ def capon(
         batched_each = jax.vmap(each, in_axes=(0,))
         result = np.empty((a.shape[0],), dtype=np.float64)
         for i in range(0, a.shape[0], batch_size):
-            result[i:i + batch_size] = batched_each(a[i:i + batch_size])
+            result[i:i + batch_size] = batched_each(jnp.array(a[i:i + batch_size]))
         return result
     else:  # Use pmap
         batches_per_device = nbatches // ndevices

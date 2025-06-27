@@ -8,7 +8,7 @@ from .noise import noise as _noise
 __all__ = ["noise"]
 
 
-def noise(size: tuple[int, int, int], power: float = 1.):
+def noise(size: list[int], power: float = 1.):
     """Generates random numbers that follow normal distribution.
     The result is normalized by 1/sqrt(2).
     Used for the thermal and galactic noise in atmospheric radars.
@@ -89,9 +89,9 @@ def spread_power(
 def spread_radial(
     v: NDArray[np.float64],
     angular_spread: float,
-    n_points: int = None,
-    rng: np.random.Generator=None,
-    angular_resolution: float = None,
+    n_points: int | None = None,
+    rng: np.random.Generator | None = None,
+    angular_resolution: float | None = None,
 ):
     """Spread radial vector `v` by Gaussian random offset for zenith angle.
     Parameters
@@ -170,9 +170,9 @@ def _spread_range(
 def spread_range(
     r: float,
     range_spread: float,
-    n_points: int = None,
-    rng: np.random.Generator = None,
-    range_resolution: float = None
+    n_points: int | None = None,
+    rng: np.random.Generator | None = None,
+    range_resolution: float | None = None
 ):
     """Spread range vector `r` by Gaussian random offset for range.
     
