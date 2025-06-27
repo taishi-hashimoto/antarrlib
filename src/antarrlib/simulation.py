@@ -171,8 +171,8 @@ def spread_range(
     r: float,
     range_spread: float,
     n_points: int | None = None,
+    range_resolution: float | None = None,
     rng: np.random.Generator | None = None,
-    range_resolution: float | None = None
 ):
     """Spread range vector `r` by Gaussian random offset for range.
     
