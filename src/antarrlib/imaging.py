@@ -145,15 +145,17 @@ def reconstruct_x(
     random_state=None,
     valid: bool = False,
 ) -> NDArray[np.complex128]:
-    """Reconstruct X from covariance matrix R.
+    """Reconstruct X from signal correlation matrix R.
 
-    This function reconstructs a matrix X such that `R := (1/T) * X @ X^H`,
-    where R is a complex Hermitian positive definite matrix.
+    This function reconstructs a set of signal(-like) vectors X such that
+    `R := (1/T) * X.T @ X.conj()`
+    where R is a complex Hermitian positive definite matrix, signal correlation matrix.
 
     Parameters
     ==========
     R: np.ndarray
-        (N, N) complex Hermitian positive definite matrix `R := (1/T) * X @ X^H`.
+        (N, N) complex Hermitian positive definite matrix.
+        Signal correlation matrix.
     T: np.ndarray
         Number of time samples used to compute R.
     rank: int
@@ -168,9 +170,10 @@ def reconstruct_x(
     Returns
     =======
     X: np.ndarray
-        (N, T) if valid is False, otherwise (N, rank).
-        A set of complex vectors such that `R := (1/T) * X @ X^H`.
+        (T, N) if valid is False, otherwise (rank, N).
+        A set of complex vectors such that `R := (1/T) * X.T @ X.conj()`.
         If `valid` is True, then the latter part will be discarded.
+        Each row of X is sorted by its magnitude in descending order.
     """
     # Eigenvalue decomposition
     lam, V = np.linalg.eigh(np.array(R))            # Eigenvalue decomposition
@@ -200,7 +203,7 @@ def reconstruct_x(
     X = np.sqrt(T) * V_r @ Lam_half @ U
     if valid:
         X = X[:, :rank]
-    return X
+    return X.T
 
 
 def gaussian_weights(nsubr: int, extend: int = 0) -> NDArray[np.float64]:

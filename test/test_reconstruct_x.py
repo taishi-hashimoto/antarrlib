@@ -10,9 +10,9 @@ def test_reconstruct_x():
 
     X_hat = reconstruct_x(R, T, valid=True)
     print("X_hat.shape =", X_hat.shape)
-    R_hat = X_hat @ X_hat.conj().T / T
+    R_hat = X_hat.T @ X_hat.conj() / T
     print("‖R - R_hat‖_F =", np.linalg.norm(R - R_hat))
     assert np.allclose(R, R_hat), (
-        "Reconstructed covariance matrix does not match the original: "
+        "Reconstructed signal correlation matrix does not match the original: "
         f"‖R - R_hat‖_F = {np.linalg.norm(R - R_hat)}"
     )
