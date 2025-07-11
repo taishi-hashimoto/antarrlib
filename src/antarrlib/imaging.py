@@ -137,16 +137,23 @@ def normalize_rxx(rxx: ArrayLike) -> NDArray[np.complex128]:
     return rxx_scaled
 
 
-def reconstruct_x(R: ArrayLike, T: int, rank=None, unitary='identity', random_state=None) -> NDArray[np.complex128]:
+def reconstruct_x(
+    R: ArrayLike,
+    T: int,
+    rank=None,
+    unitary='identity',
+    random_state=None,
+    valid: bool = False,
+) -> NDArray[np.complex128]:
     """Reconstruct X from covariance matrix R.
 
-    This function reconstructs a matrix X such that `R := (1/T) * X * X^H`,
+    This function reconstructs a matrix X such that `R := (1/T) * X @ X^H`,
     where R is a complex Hermitian positive definite matrix.
 
     Parameters
     ==========
     R: np.ndarray
-        (N,N) complex Hermitian positive definite matrix `R := (1/T) * X * X^H`.
+        (N, N) complex Hermitian positive definite matrix `R := (1/T) * X @ X^H`.
     T: np.ndarray
         Number of time samples used to compute R.
     rank: int
@@ -155,6 +162,15 @@ def reconstruct_x(R: ArrayLike, T: int, rank=None, unitary='identity', random_st
         Choice of right unitary matrix.
         - 'identity'
         - 'random'
+    valid: bool
+        If True, only (rank, rank) part of the matrix is returned.
+
+    Returns
+    =======
+    X: np.ndarray
+        (N, T) if valid is False, otherwise (N, rank).
+        A set of complex vectors such that `R := (1/T) * X @ X^H`.
+        If `valid` is True, then the latter part will be discarded.
     """
     # Eigenvalue decomposition
     lam, V = np.linalg.eigh(np.array(R))            # Eigenvalue decomposition
@@ -182,6 +198,8 @@ def reconstruct_x(R: ArrayLike, T: int, rank=None, unitary='identity', random_st
         raise ValueError("unitary must be 'identity' or 'random'")
 
     X = np.sqrt(T) * V_r @ Lam_half @ U
+    if valid:
+        X = X[:, :rank]
     return X
 
 
