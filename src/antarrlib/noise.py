@@ -4,6 +4,7 @@ from typing import List
 from numpy.random import standard_normal
 from scipy.special import erfcinv
 from .periodogram import _discard_extra, _split_axis
+from ._mpfit import fit_noise_mp
 
 
 def noise(size: List[int], power: float = 1.):

@@ -14,3 +14,7 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.8"
 numpy = "*"
+jax = "*"
+jaxopt = "*"
+scipy = "*"
+matplotlib = "*"
