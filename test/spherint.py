@@ -1,6 +1,6 @@
 import numpy as np
 from math import isclose
-from antarrlib.spherint import patch_area
+from antarrlib.spherint import patch_area, GridSphericalIntegrator, TriGridSphericalIntegrator
 from antarrlib.fundamental import freq2wlen
 
 
@@ -14,9 +14,13 @@ def test_sphere():
     a1 = np.sum(p1)
     # Theoretical, a sphere with its radius = ra
     a2 = 4 * np.pi * ra**2
+    a3 = GridSphericalIntegrator(np.deg2rad(ze), np.deg2rad(az)).integrate(np.ones((len(ze), len(az))))
+    ze_g, az_g = np.meshgrid(np.deg2rad(ze), np.deg2rad(az), indexing='ij')
+    a4 = TriGridSphericalIntegrator(ze_g, az_g).integrate(np.ones(len(ze)*len(az)))
     # Difference of these should be small.
     assert isclose(a2 - a1, 0.00019937363414079812)
-
+    assert isclose(a2, a3, rel_tol=1e-3)  # New implementation, grid
+    assert isclose(a2, a4, rel_tol=1e-6)  # New implementation, tri
 
 def short_dipole(frequency, length, theta, i=1, r=1):
     """
@@ -75,3 +79,9 @@ def test_radiated_power():
 
     # Difference should be small.
     assert isclose(P, num)
+
+    # grid
+    num2 = GridSphericalIntegrator(np.deg2rad(z), np.deg2rad(a)).integrate(p) / 2 / Z0
+
+    assert isclose(P, num2)
+    
