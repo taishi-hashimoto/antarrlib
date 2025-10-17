@@ -16,6 +16,8 @@ from .noise import noise, mean_chisq
 
 from .position import incirc_trigrid
 
+from .antennaarray import AntennaArray
+
 __all__ = [
     "freq2wnum", "freq2wlen", "wlen2wnum",
     "steering_vector", "radial", "SPEED_OF_LIGHT",
@@ -23,5 +25,6 @@ __all__ = [
     "periodogram", "coherent_average", "incoherent_average",
     "velocity_axis", "frequency_axis",
     "noise", "mean_chisq",
-    "incirc_trigrid"
+    "incirc_trigrid",
+    "AntennaArray",
 ]
