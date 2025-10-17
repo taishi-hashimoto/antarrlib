@@ -126,6 +126,7 @@ class AntennaArray:
         p : np.ndarray
             Beam pattern.
         """
+        s = np.shape(beam_ze) + np.shape(ze)
         v = self.far_field(ze, az)
         w = self.steering_vector(beam_ze, beam_az, normalize=True)
         v = self._ensure_3d(v)
@@ -135,5 +136,5 @@ class AntennaArray:
         p = np.abs(
             w.reshape(nze_beam*naz_beam, nant).dot(
                 v.reshape(nze_eval*naz_eval, nant).conj().T
-            ).reshape(nze_beam, naz_beam, nze_eval, naz_eval))**2
+            ).reshape(s))**2
         return p
