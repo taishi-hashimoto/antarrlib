@@ -108,16 +108,16 @@ class GridSphericalIntegrator:
         self.w_theta = trapezoid_weights_nonuniform(self.theta)
         self.sin_theta = np.sin(self.theta)
 
-    def integrate(self, values: np.ndarray) -> float:
+    def integrate(self, values: np.ndarray) -> np.ndarray:
         """Integrate values on the spherical grid."""
         f = np.asarray(values, dtype=float)
-        if f.shape != (self.theta.size, self.phi.size):
+        if f.shape[-2:] != (self.theta.size, self.phi.size):
             raise ValueError(
-                f"values must have shape {(self.theta.size, self.phi.size)}"
+                f"Last 2 dims of values must have shape {(self.theta.size, self.phi.size)}"
             )
         g = f @ self.w_phi
-        integral = np.dot(self.w_theta, g * self.sin_theta)
-        return float(integral)
+        integral = np.tensordot(self.w_theta, g * self.sin_theta, ([-1], [-1]))
+        return integral
 
     def average(self, values: np.ndarray) -> float:
         """Average values on the spherical grid."""
